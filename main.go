@@ -2,71 +2,40 @@ package main
 
 import (
 	"fmt"
-	"sort"
+	"maps"
 )
 
-// Dictionary représente le dictionnaire
-type Dictionary struct {
-	entries map[string]string
-}
-
-// NewDictionary crée une nouvelle instance de Dictionary
-func NewDictionary() *Dictionary {
-	return &Dictionary{
-		entries: make(map[string]string),
-	}
-}
-
-// Add ajoute un mot et sa définition au dictionnaire
-func (d *Dictionary) Add(word, definition string) {
-	d.entries[word] = definition
-}
-
-// Get récupère la définition d'un mot spécifique
-func (d *Dictionary) Get(word string) (string, bool) {
-	definition, exists := d.entries[word]
-	return definition, exists
-}
-
-// Remove supprime un mot du dictionnaire
-func (d *Dictionary) Remove(word string) {
-	delete(d.entries, word)
-}
-
-// List renvoie la liste triée des mots et de leurs définitions
-func (d *Dictionary) List() []string {
-	var result []string
-	for word, definition := range d.entries {
-		result = append(result, fmt.Sprintf("%s: %s", word, definition))
-	}
-
-	sort.Strings(result)
-	return result
-}
-
 func main() {
-	// Créer une nouvelle instance de Dictionary
-	dictionary := NewDictionary()
 
-	// Ajouter quelques mots et définitions
-	dictionary.Add("go", "A programming language")
-	dictionary.Add("map", "A data structure")
+	m := make(map[string]int)
 
-	// Utiliser la méthode Get pour afficher la définition d'un mot spécifique
-	definition, exists := dictionary.Get("go")
-	if exists {
-		fmt.Printf("Definition of 'go': %s\n", definition)
-	} else {
-		fmt.Println("Word not found in the dictionary")
-	}
+	m["k1"] = 7
+	m["k2"] = 13
 
-	// Utiliser la méthode Remove pour supprimer un mot du dictionnaire
-	dictionary.Remove("map")
+	fmt.Println("map:", m)
 
-	// Appeler la méthode List pour obtenir la liste triée des mots et de leurs définitions
-	wordList := dictionary.List()
-	fmt.Println("Dictionary entries:")
-	for _, entry := range wordList {
-		fmt.Println(entry)
+	v1 := m["k1"]
+	fmt.Println("v1:", v1)
+
+	v3 := m["k3"]
+	fmt.Println("v3:", v3)
+
+	fmt.Println("len:", len(m))
+
+	delete(m, "k2")
+	fmt.Println("map:", m)
+
+	clear(m)
+	fmt.Println("map:", m)
+
+	_, prs := m["k2"]
+	fmt.Println("prs:", prs)
+
+	n := map[string]int{"foo": 1, "bar": 2}
+	fmt.Println("map:", n)
+
+	n2 := map[string]int{"foo": 1, "bar": 2}
+	if maps.Equal(n, n2) {
+		fmt.Println("n == n2")
 	}
 }
