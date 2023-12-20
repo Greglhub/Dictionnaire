@@ -1,130 +1,97 @@
 package dictio
 
 import (
-	"bufio"
-	"fmt"
-	"os"
-	"sort"
-	"strings"
+	"encoding/json"
+	"net/http"
 	"sync"
 )
 
+// Entry représente une entrée dans le dictionnaire.
 type Entry struct {
-	Word, Definition string
+	Mot        string `json:"mot"`
+	Definition string `json:"definition"`
 }
 
+// Dictionary représente un dictionnaire avec des opérations CRUD.
 type Dictionary struct {
-	FilePath string
-	mu       sync.Mutex
-	AddCh    chan Entry
-	RemoveCh chan string
+	entries map[string]Entry
+	mu      sync.RWMutex
 }
 
-func NewDictionary(filePath string) *Dictionary {
+// NewDictionary crée une nouvelle instance de Dictionary.
+func NewDictionary() *Dictionary {
 	return &Dictionary{
-		FilePath: filePath,
-		AddCh:    make(chan Entry),
-		RemoveCh: make(chan string),
+		entries: make(map[string]Entry),
 	}
 }
 
-func (d *Dictionary) Add(word, definition string) {
-	d.AddCh <- Entry{Word: word, Definition: definition}
-}
-
-func (d *Dictionary) Remove(word string) {
-	d.RemoveCh <- word
-}
-
-func (d *Dictionary) Get(word string) (string, bool) {
-	entries := d.readEntriesFromFile()
-	for _, entry := range entries {
-		if entry.Word == word {
-			return entry.Definition, true
-		}
-	}
-	return "", false
-}
-
-func (d *Dictionary) handleAdd() {
-	for entry := range d.AddCh {
-		d.mu.Lock()
-		d.writeEntryToFile(entry)
-		d.mu.Unlock()
-	}
-}
-
-func (d *Dictionary) handleRemove() {
-	for word := range d.RemoveCh {
-		d.mu.Lock()
-		entries := d.readEntriesFromFile()
-		filteredEntries := make([]Entry, 0, len(entries))
-		for _, entry := range entries {
-			if entry.Word != word {
-				filteredEntries = append(filteredEntries, entry)
-			}
-		}
-		d.writeEntriesToFile(filteredEntries)
-		d.mu.Unlock()
-	}
-}
-
-func (d *Dictionary) List() []string {
-	entries := d.readEntriesFromFile()
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Word < entries[j].Word
-	})
-	var result []string
-	for _, entry := range entries {
-		result = append(result, fmt.Sprintf("%s: %s", entry.Word, entry.Definition))
-	}
-	return result
-}
-
-func (d *Dictionary) StartWorkers() {
-	go d.handleAdd()
-	go d.handleRemove()
-}
-
-func (d *Dictionary) writeEntryToFile(entry Entry) {
-	file, err := os.OpenFile(d.FilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
+// handleMethodNotAllowed vérifie si la méthode HTTP est autorisée.
+func (d *Dictionary) handleMethodNotAllowed(w http.ResponseWriter, r *http.Request, allowedMethod string) {
+	if r.Method != allowedMethod {
+		http.Error(w, "Méthode non autorisée", http.StatusMethodNotAllowed)
 		return
 	}
-	defer file.Close()
-
-	fmt.Fprintf(file, "%s|%s\n", entry.Word, entry.Definition)
 }
 
-func (d *Dictionary) writeEntriesToFile(entries []Entry) {
-	file, err := os.OpenFile(d.FilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
+// Add ajoute une nouvelle entrée dans le dictionnaire.
+func (d *Dictionary) Add(w http.ResponseWriter, r *http.Request) {
+	d.handleMethodNotAllowed(w, r, http.MethodPost)
+
+	var entry Entry
+	if err := json.NewDecoder(r.Body).Decode(&entry); err != nil {
+		http.Error(w, "Erreur lors de la lecture du corps de la requête", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
 
-	for _, entry := range entries {
-		fmt.Fprintf(file, "%s|%s\n", entry.Word, entry.Definition)
-	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.entries[entry.Mot] = entry
+	w.WriteHeader(http.StatusCreated)
 }
 
-func (d *Dictionary) readEntriesFromFile() []Entry {
-	file, err := os.Open(d.FilePath)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return nil
-	}
-	defer file.Close()
+// Get récupère la définition d'un mot dans le dictionnaire.
+func (d *Dictionary) Get(w http.ResponseWriter, r *http.Request) {
+	d.handleMethodNotAllowed(w, r, http.MethodGet)
 
-	scanner := bufio.NewScanner(file)
+	word := r.URL.Query().Get("mot")
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	entry, exists := d.entries[word]
+	if !exists {
+		http.Error(w, "Mot non trouvé", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entry)
+}
+
+// Remove supprime une entrée du dictionnaire.
+func (d *Dictionary) Remove(w http.ResponseWriter, r *http.Request) {
+	d.handleMethodNotAllowed(w, r, http.MethodDelete)
+
+	word := r.URL.Query().Get("mot")
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	delete(d.entries, word)
+	w.WriteHeader(http.StatusOK)
+}
+
+// List renvoie la liste complète des entrées du dictionnaire.
+func (d *Dictionary) List(w http.ResponseWriter, r *http.Request) {
+	d.handleMethodNotAllowed(w, r, http.MethodGet)
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
 	var entries []Entry
-	for scanner.Scan() {
-		parts := strings.Split(scanner.Text(), "|")
-		if len(parts) == 2 {
-			entries = append(entries, Entry{Word: parts[0], Definition: parts[1]})
-		}
+	for _, entry := range d.entries {
+		entries = append(entries, entry)
 	}
-	return entries
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entries)
 }

@@ -2,57 +2,20 @@ package main
 
 import (
 	"fmt"
-	"sync"
+	"net/http"
 
 	"Dictionnaire.go/dictio"
 )
 
+const port = 8080
+
 func main() {
-	dictionaryFilePath := "dictionary.json"
-	dico := dictio.NewDictionary(dictionaryFilePath)
+	dictionary := dictio.NewDictionary()
+	dictio.SetupRoutes(dictionary)
 
-	// Démarrer les workers de gestion concurrente
-	dico.StartWorkers()
+	fmt.Printf("Serveur en cours d'exécution sur le port %d...\n", port)
 
-	var wg sync.WaitGroup
-
-	// Exemple d'utilisation concurrente
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		dico.Add("go", "A programming language")
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		definition, exists := dico.Get("go")
-		if exists {
-			fmt.Printf("Definition of 'go': %s\n", definition)
-		} else {
-			fmt.Println("Word not found in the dictionary")
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		dico.Remove("map")
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		wordList := dico.List()
-		fmt.Println("Dictionary entries:")
-		for _, entry := range wordList {
-			fmt.Println(entry)
-		}
-	}()
-
-	wg.Wait()
-
-	// Fermer les channels après que toutes les opérations soient terminées
-	close(dico.AddCh)
-	close(dico.RemoveCh)
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+		fmt.Printf("Erreur lors du démarrage du serveur: %s\n", err)
+	}
 }
