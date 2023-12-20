@@ -7,12 +7,10 @@ import (
 )
 
 func main() {
-	// Initialiser le dictionnaire avec le chemin du fichier
 	dictionaryFilePath := "dictionary.json"
 	dict := dictio.NewDictionary(dictionaryFilePath)
 
-	// Utiliser les méthodes du dictionnaire
-	dict.Add("Bonjour", ", ça fonctionne")
+	dict.Add("go", "A programming language")
 	dict.Add("map", "A data structure")
 
 	definition, exists := dict.Get("go")
