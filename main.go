@@ -52,4 +52,21 @@ func main() {
 	dictionary.Add("go", "A programming language")
 	dictionary.Add("map", "A data structure")
 
+	// Utiliser la méthode Get pour afficher la définition d'un mot spécifique
+	definition, exists := dictionary.Get("go")
+	if exists {
+		fmt.Printf("Definition of 'go': %s\n", definition)
+	} else {
+		fmt.Println("Word not found in the dictionary")
+	}
 
+	// Utiliser la méthode Remove pour supprimer un mot du dictionnaire
+	dictionary.Remove("map")
+
+	// Appeler la méthode List pour obtenir la liste triée des mots et de leurs définitions
+	wordList := dictionary.List()
+	fmt.Println("Dictionary entries:")
+	for _, entry := range wordList {
+		fmt.Println(entry)
+	}
+}
